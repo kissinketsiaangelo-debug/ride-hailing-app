@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import RatingModal from "@/components/RatingModal"
+import { calculateRideFare } from "@/lib/fare"
 
 // Dynamically import the map component to avoid SSR issues with Leaflet
 const Map = dynamic(() => import("@/components/Map"), {
@@ -17,8 +18,8 @@ const Map = dynamic(() => import("@/components/Map"), {
   ),
 })
 
-// Simulated current location (in a real app, use the browser's Geolocation API)
-const DEFAULT_LOCATION = { lat: 6.5244, lng: 3.3792 } // Lagos
+// Default location: Accra, Ghana
+const DEFAULT_LOCATION = { lat: 5.6037, lng: -0.1870 }
 
 export default function RequestRidePage() {
   const router = useRouter()
@@ -68,6 +69,16 @@ export default function RequestRidePage() {
       setPickup(DEFAULT_LOCATION)
     }
   }, [router])
+
+  // Calculate fare estimate whenever pickup and dropoff change
+  useEffect(() => {
+    if (pickup && dropoff) {
+      const estimatedFare = calculateRideFare(pickup, dropoff)
+      setFare(Math.round(estimatedFare * 100) / 100)
+    } else {
+      setFare(null)
+    }
+  }, [pickup, dropoff])
 
   // Handle map click to set dropoff location
   const handleMapClick = useCallback((lat: number, lng: number) => {
@@ -226,6 +237,19 @@ export default function RequestRidePage() {
             onClick={handleMapClick}
             height="400px"
           />
+
+          {/* Fare estimate banner - shows as soon as both locations are set */}
+          {pickup && dropoff && fare && (
+            <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-emerald-600 font-medium">ESTIMATED FARE</p>
+                <p className="text-xs text-emerald-500">
+                  Base + distance + time
+                </p>
+              </div>
+              <p className="text-2xl font-bold text-emerald-700">₵{fare.toFixed(2)}</p>
+            </div>
+          )}
 
           {/* Request ride button */}
           <button

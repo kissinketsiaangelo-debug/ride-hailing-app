@@ -5,6 +5,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
+import { calculateDeliveryFee } from "@/lib/fare"
 
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -15,7 +16,7 @@ const Map = dynamic(() => import("@/components/Map"), {
   ),
 })
 
-const DEFAULT_LOCATION = { lat: 6.5244, lng: 3.3792 }
+const DEFAULT_LOCATION = { lat: 5.6037, lng: -0.1870 } // Accra, Ghana
 
 export default function RequestDeliveryPage() {
   const router = useRouter()
@@ -54,6 +55,17 @@ export default function RequestDeliveryPage() {
       setPickup(DEFAULT_LOCATION)
     }
   }, [router])
+
+  // Live fee calculation when pickup, dropoff, or package weight changes
+  useEffect(() => {
+    if (pickup && dropoff) {
+      const w = parseFloat(packageWeight) || 0
+      const estimatedFee = calculateDeliveryFee(pickup, dropoff, w)
+      setFee(Math.round(estimatedFee * 100) / 100)
+    } else {
+      setFee(null)
+    }
+  }, [pickup, dropoff, packageWeight])
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
     if (step === "select") {
@@ -188,19 +200,22 @@ export default function RequestDeliveryPage() {
             height="350px"
           />
 
+          {/* Live fee estimate */}
+          {pickup && dropoff && fee && (
+            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-blue-600 font-medium">ESTIMATED FEE</p>
+                <p className="text-xs text-blue-500">
+                  Distance + weight surcharge
+                </p>
+              </div>
+              <p className="text-2xl font-bold text-blue-700">₵{fee.toFixed(2)}</p>
+            </div>
+          )}
+
           {pickup && dropoff && (
             <button
-              onClick={() => {
-                // Calculate an estimated fee for display
-                const dist =
-                  Math.sqrt(
-                    Math.pow(dropoff.lat - pickup.lat, 2) +
-                      Math.pow(dropoff.lng - pickup.lng, 2)
-                  ) * 111
-                const estFee = 30 + dist * 10 + (parseFloat(packageWeight) || 0) * 5
-                setFee(estFee)
-                setStep("confirm")
-              }}
+              onClick={() => setStep("confirm")}
               className="mt-4 w-full py-3 text-sm font-semibold text-white bg-blue-500 rounded-xl hover:bg-blue-600"
             >
               Continue
