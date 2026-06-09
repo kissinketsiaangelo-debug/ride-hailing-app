@@ -65,7 +65,7 @@ export default function DriverEarningsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <p className="text-sm text-gray-500 mb-1">Total Earnings</p>
           <p className="text-3xl font-bold text-gray-900">
-            ${totalEarnings.toFixed(2)}
+            ₦{totalEarnings.toFixed(2)}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -75,7 +75,7 @@ export default function DriverEarningsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <p className="text-sm text-gray-500 mb-1">Avg. Per Trip</p>
           <p className="text-3xl font-bold text-gray-900">
-            ${averagePerTrip.toFixed(2)}
+            ₦{averagePerTrip.toFixed(2)}
           </p>
         </div>
       </div>

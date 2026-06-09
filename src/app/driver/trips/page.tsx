@@ -125,7 +125,7 @@ export default function DriverTripsPage() {
               </p>
               {trip.fare && (
                 <p className="text-sm font-semibold text-gray-900 mt-1">
-                  Fare: ${trip.fare.toFixed(2)}
+                  Fare: ₦{trip.fare.toFixed(2)}
                 </p>
               )}
               <p className="text-xs text-gray-400 mt-1">

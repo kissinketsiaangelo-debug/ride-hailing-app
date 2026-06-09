@@ -275,7 +275,7 @@ export default function RequestRidePage() {
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Estimated Fare</span>
               <span className="text-xl font-bold text-gray-900">
-                ${fare ? fare.toFixed(2) : "---"}
+                ₦{fare ? fare.toFixed(2) : "---"}
               </span>
             </div>
             <p className="text-xs text-gray-400 mt-1">
@@ -342,7 +342,7 @@ export default function RequestRidePage() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Fare</span>
                   <span className="text-lg font-semibold">
-                    ${fare?.toFixed(2) || "---"}
+                    ₦{fare?.toFixed(2) || "---"}
                   </span>
                 </div>
                 <div className="flex justify-between items-center mt-2">

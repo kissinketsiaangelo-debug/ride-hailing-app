@@ -153,7 +153,7 @@ export default function RideCard({
       {/* Amount */}
       <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
         <span className="text-sm font-semibold text-gray-900">
-          {type === "ride" ? "Fare" : "Fee"}: ${amount.toFixed(2)}
+          {type === "ride" ? "Fare" : "Fee"}: ₦{amount.toFixed(2)}
         </span>
 
         {/* Action buttons */}

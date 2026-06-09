@@ -252,7 +252,7 @@ export default function RequestDeliveryPage() {
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Estimated Fee</span>
               <span className="text-xl font-bold text-gray-900">
-                ${fee?.toFixed(2) || "---"}
+                ₦{fee?.toFixed(2) || "---"}
               </span>
             </div>
           </div>
@@ -303,7 +303,7 @@ export default function RequestDeliveryPage() {
           </p>
           {fee && (
             <p className="text-lg font-bold text-gray-900 mb-6">
-              Fee: ${fee.toFixed(2)}
+              Fee: ₦{fee.toFixed(2)}
             </p>
           )}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">

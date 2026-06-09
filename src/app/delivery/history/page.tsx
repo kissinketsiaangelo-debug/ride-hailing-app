@@ -84,7 +84,7 @@ export default function DeliveryHistoryPage() {
               </p>
               {delivery.fee && (
                 <p className="text-sm font-semibold mt-1">
-                  ${delivery.fee.toFixed(2)}
+                  ₦{delivery.fee.toFixed(2)}
                 </p>
               )}
             </div>

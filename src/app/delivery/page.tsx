@@ -186,7 +186,7 @@ export default function DeliveryPage() {
                 </div>
                 {delivery.fee && (
                   <p className="text-sm font-semibold text-gray-900 mt-2">
-                    Fee: ${delivery.fee.toFixed(2)}
+                    Fee: ₦{delivery.fee.toFixed(2)}
                   </p>
                 )}
               </div>
