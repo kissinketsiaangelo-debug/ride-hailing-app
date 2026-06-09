@@ -1,0 +1,115 @@
+// Prisma schema for the ride-hailing application
+// Defines all database models: User, Ride, Delivery, Payment, Rating
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - represents both riders and drivers
+// Role determines whether the user is a rider or driver
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   // "RIDER" or "DRIVER"
+  phone     String?
+  createdAt DateTime @default(now())
+
+  // Driver-specific fields
+  isOnline      Boolean  @default(false)
+  currentLat    Float?   // Driver's current GPS latitude
+  currentLng    Float?   // Driver's current GPS longitude
+  totalEarnings Float    @default(0)
+
+  // Relations (one-to-many: a user can have many rides/deliveries/ratings)
+  ridesAsRider   Ride[]     @relation("RiderRides")
+  ridesAsDriver  Ride[]     @relation("DriverRides")
+  deliveriesAsSender   Delivery[] @relation("SenderDeliveries")
+  deliveriesAsDriver   Delivery[] @relation("DriverDeliveries")
+  ratingsGiven   Rating[]   @relation("RatingGiven")
+  ratingsReceived Rating[] @relation("RatingReceived")
+}
+
+// Ride model - represents a passenger ride request
+// Status flow: PENDING -> ACCEPTED -> STARTED -> COMPLETED -> CANCELLED
+model Ride {
+  id           String   @id @default(uuid())
+  riderId      String
+  driverId     String?
+  pickupLat    Float
+  pickupLng    Float
+  pickupAddr   String?
+  dropoffLat   Float
+  dropoffLng   Float
+  dropoffAddr  String?
+  status       String   @default("PENDING") // PENDING, ACCEPTED, STARTED, COMPLETED, CANCELLED
+  fare         Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rider  User  @relation("RiderRides", fields: [riderId], references: [id])
+  driver User? @relation("DriverRides", fields: [driverId], references: [id])
+
+  payment  Payment?
+  rating   Rating?
+}
+
+// Delivery model - represents a package delivery request
+// Status flow: PENDING -> ACCEPTED -> PICKED_UP -> IN_TRANSIT -> DELIVERED -> CANCELLED
+model Delivery {
+  id            String   @id @default(uuid())
+  senderId      String
+  driverId      String?
+  pickupLat     Float
+  pickupLng     Float
+  pickupAddr    String?
+  dropoffLat    Float
+  dropoffLng    Float
+  dropoffAddr   String?
+  packageDesc   String?  // Description of the package
+  packageWeight Float?   // Weight in kg
+  status        String   @default("PENDING") // PENDING, ACCEPTED, PICKED_UP, IN_TRANSIT, DELIVERED, CANCELLED
+  fee           Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sender User  @relation("SenderDeliveries", fields: [senderId], references: [id])
+  driver User? @relation("DriverDeliveries", fields: [driverId], references: [id])
+
+  payment Payment?
+}
+
+// Payment model - records transactions for rides and deliveries
+model Payment {
+  id         String   @id @default(uuid())
+  rideId     String?  @unique
+  deliveryId String?  @unique
+  amount     Float
+  method     String   @default("CARD") // CARD, CASH, WALLET
+  status     String   @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  createdAt  DateTime @default(now())
+
+  ride     Ride?     @relation(fields: [rideId], references: [id])
+  delivery Delivery? @relation(fields: [deliveryId], references: [id])
+}
+
+// Rating model - bidirectional ratings between riders and drivers
+model Rating {
+  id         String   @id @default(uuid())
+  rideId     String   @unique
+  fromUserId String   // Who gave the rating
+  toUserId   String   // Who received the rating
+  score      Int      // 1 to 5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  ride       Ride  @relation(fields: [rideId], references: [id])
+  fromUser   User  @relation("RatingGiven", fields: [fromUserId], references: [id])
+  toUser     User  @relation("RatingReceived", fields: [toUserId], references: [id])
+}
