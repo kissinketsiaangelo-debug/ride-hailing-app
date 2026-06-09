@@ -207,7 +207,7 @@ export default function DriverDashboard() {
               Dropoff: {activeRide.dropoffAddr || `${activeRide.dropoffLat.toFixed(4)}, ${activeRide.dropoffLng.toFixed(4)}`}
             </p>
             <p className="text-sm font-semibold text-gray-900">
-              Fare: ₦{activeRide.fare.toFixed(2)}
+              Fare: ₵{activeRide.fare.toFixed(2)}
             </p>
           </div>
           <button
@@ -235,7 +235,7 @@ export default function DriverDashboard() {
                   Ride #{request.id.slice(0, 8)}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Fare: ₦{request.fare.toFixed(2)}
+                  Fare: ₵{request.fare.toFixed(2)}
                 </p>
                 <button
                   onClick={() => acceptRide(request.id)}

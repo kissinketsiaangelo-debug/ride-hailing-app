@@ -4,7 +4,7 @@
 import { haversineDistance } from "./matching"
 import type { Location } from "./types"
 
-// Configuration constants for fare calculation (in Nigerian Naira ₦)
+// Configuration constants for fare calculation (in Ghana Cedis ₵)
 const CONFIG = {
   // Ride fares
   rideBaseFare: 500, // Base fare in Naira
