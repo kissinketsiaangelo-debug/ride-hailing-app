@@ -22,6 +22,10 @@ type Delivery = {
   id: string
   pickupAddr?: string | null
   dropoffAddr?: string | null
+  pickupLat: number
+  pickupLng: number
+  dropoffLat: number
+  dropoffLng: number
   packageDesc?: string | null
   packageWeight?: number | null
   status: string
@@ -61,6 +65,7 @@ export default function RideCard({
 }: RideCardProps) {
   const data = type === "ride" ? ride : delivery
   if (!data) return null
+  const driver = type === "ride" ? ride?.driver : delivery?.driver
 
   const statusInfo = statusConfig[data.status] || {
     label: data.status,
@@ -134,12 +139,12 @@ export default function RideCard({
       </div>
 
       {/* Driver/Rider info */}
-      {(ride?.driver || delivery?.driver) && (
+      {driver && (
         <div className="mt-3 pt-3 border-t border-gray-100">
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-400">Driver:</span>
             <span className="text-sm font-medium text-gray-700">
-              {ride?.driver?.name || delivery?.driver?.name}
+              {driver.name}
             </span>
           </div>
         </div>
@@ -155,9 +160,9 @@ export default function RideCard({
         {showActions && (
           <div className="space-x-2">
             {/* Rating button for completed rides */}
-            {data.status === "COMPLETED" && type === "ride" && ride?.driver && onRate && (
+            {data.status === "COMPLETED" && type === "ride" && driver && onRate && (
               <button
-                onClick={() => onRate(ride.id, ride.driver.id)}
+                onClick={() => onRate(ride!.id, driver.id)}
                 className="text-sm bg-amber-50 text-amber-700 px-3 py-1 rounded-lg hover:bg-amber-100"
               >
                 ★ Rate

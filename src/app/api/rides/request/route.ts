@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db"
 import { getUserFromRequest } from "@/lib/auth"
 import { findNearestDriver } from "@/lib/matching"
 import { calculateRideFare } from "@/lib/fare"
+import type { User, UserRole } from "@/lib/types"
 
 export async function POST(request: NextRequest) {
   try {
@@ -72,9 +73,10 @@ export async function POST(request: NextRequest) {
     // Cast drivers to include required fields for the matching algorithm
     const driversWithLocation = onlineDrivers.map((driver) => ({
       ...driver,
+      role: driver.role as UserRole,
       currentLat: driver.currentLat!,
       currentLng: driver.currentLng!,
-    }))
+    })) as (User & { currentLat: number; currentLng: number })[]
 
     // Find the nearest driver
     const matchedDriver = findNearestDriver(
