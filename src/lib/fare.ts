@@ -4,19 +4,19 @@
 import { haversineDistance } from "./matching"
 import type { Location } from "./types"
 
-// Configuration constants for fare calculation
+// Configuration constants for fare calculation (in Nigerian Naira ₦)
 const CONFIG = {
   // Ride fares
-  rideBaseFare: 50, // Base fare in currency units
-  ridePerKmRate: 15, // Cost per kilometer
-  ridePerMinuteRate: 2, // Cost per minute (simulated)
-  rideMinFare: 30, // Minimum fare for any ride
+  rideBaseFare: 500, // Base fare in Naira
+  ridePerKmRate: 150, // Cost per kilometer
+  ridePerMinuteRate: 20, // Cost per minute (simulated)
+  rideMinFare: 300, // Minimum fare for any ride
 
   // Delivery fees
-  deliveryBaseFee: 30,
-  deliveryPerKmRate: 10,
-  deliveryWeightSurcharge: 5, // Per kg surcharge
-  deliveryMinFee: 20,
+  deliveryBaseFee: 300,
+  deliveryPerKmRate: 100,
+  deliveryWeightSurcharge: 50, // Per kg surcharge
+  deliveryMinFee: 200,
 }
 
 // Calculate the estimated fare for a ride between pickup and dropoff
