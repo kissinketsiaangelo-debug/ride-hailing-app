@@ -54,7 +54,7 @@ type MapProps = {
 }
 
 export default function Map({
-  center = [6.5244, 3.3792], // Default center: Lagos, Nigeria
+  center = [5.6037, -0.1870], // Default center: Accra, Ghana
   zoom = 13,
   height = "400px",
   pickup,

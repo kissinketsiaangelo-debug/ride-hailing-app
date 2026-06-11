@@ -1,5 +1,3 @@
-// Request Ride page - interactive map to select pickup/dropoff and request a ride
-
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
@@ -8,7 +6,6 @@ import dynamic from "next/dynamic"
 import RatingModal from "@/components/RatingModal"
 import { calculateRideFare } from "@/lib/fare"
 
-// Dynamically import the map component to avoid SSR issues with Leaflet
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
   loading: () => (
@@ -18,7 +15,6 @@ const Map = dynamic(() => import("@/components/Map"), {
   ),
 })
 
-// Default location: Accra, Ghana
 const DEFAULT_LOCATION = { lat: 5.6037, lng: -0.1870 }
 
 export default function RequestRidePage() {
@@ -28,6 +24,7 @@ export default function RequestRidePage() {
   const [dropoff, setDropoff] = useState<{ lat: number; lng: number } | null>(null)
   const [pickupAddr, setPickupAddr] = useState("")
   const [dropoffAddr, setDropoffAddr] = useState("")
+  const [setting, setSetting] = useState<"pickup" | "dropoff">("dropoff")
   const [step, setStep] = useState<"select" | "confirm" | "matching" | "active" | "complete">("select")
   const [fare, setFare] = useState<number | null>(null)
   const [rideId, setRideId] = useState<string | null>(null)
@@ -51,7 +48,6 @@ export default function RequestRidePage() {
     }
     setToken(storedToken)
 
-    // Get current location from browser
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -61,7 +57,6 @@ export default function RequestRidePage() {
           })
         },
         () => {
-          // Fallback to default location
           setPickup(DEFAULT_LOCATION)
         }
       )
@@ -70,7 +65,6 @@ export default function RequestRidePage() {
     }
   }, [router])
 
-  // Calculate fare estimate whenever pickup and dropoff change
   useEffect(() => {
     if (pickup && dropoff) {
       const estimatedFare = calculateRideFare(pickup, dropoff)
@@ -80,15 +74,17 @@ export default function RequestRidePage() {
     }
   }, [pickup, dropoff])
 
-  // Handle map click to set dropoff location
   const handleMapClick = useCallback((lat: number, lng: number) => {
-    if (step === "select") {
+    if (step !== "select") return
+    if (setting === "pickup") {
+      setPickup({ lat, lng })
+      setPickupAddr(`${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+    } else {
       setDropoff({ lat, lng })
       setDropoffAddr(`${lat.toFixed(4)}, ${lng.toFixed(4)}`)
     }
-  }, [step])
+  }, [step, setting])
 
-  // Request the ride
   const handleRequestRide = async () => {
     if (!pickup || !dropoff || !token) return
 
@@ -127,7 +123,6 @@ export default function RequestRidePage() {
         setMatchedDriver(data.data.matchedDriver)
         setStep("active")
       } else {
-        // No driver found - still create the ride but let the user know
         setMatchedDriver(null)
         setStep("active")
       }
@@ -137,7 +132,6 @@ export default function RequestRidePage() {
     }
   }
 
-  // Complete the ride
   const handleCompleteRide = async () => {
     if (!rideId || !token) return
 
@@ -157,7 +151,6 @@ export default function RequestRidePage() {
     }
   }
 
-  // Submit rating
   const handleSubmitRating = async (score: number, comment: string) => {
     if (!currentRideId || !currentDriverId || !token) return
 
@@ -177,7 +170,6 @@ export default function RequestRidePage() {
       })
       setShowRating(false)
     } catch {
-      // Ignore rating errors
     }
   }
 
@@ -196,11 +188,9 @@ export default function RequestRidePage() {
       {step === "select" && (
         <>
           <p className="text-sm text-gray-500 mb-4">
-            Click on the map to set your dropoff location. Your current location
-            is used as the pickup point.
+            Click on the map to set your pickup and dropoff locations.
           </p>
 
-          {/* Location inputs */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
             <div className="flex items-start space-x-3">
               <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2.5 flex-shrink-0" />
@@ -210,10 +200,20 @@ export default function RequestRidePage() {
                   type="text"
                   value={pickupAddr}
                   onChange={(e) => setPickupAddr(e.target.value)}
-                  placeholder="Your current location"
+                  placeholder="Pickup location"
                   className="w-full text-sm text-gray-700 bg-transparent border-b border-gray-200 py-1 focus:outline-none focus:border-emerald-500"
                 />
               </div>
+              <button
+                onClick={() => setSetting("pickup")}
+                className={`text-xs font-medium px-3 py-1 rounded-full flex-shrink-0 ${
+                  setting === "pickup"
+                    ? "bg-emerald-500 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                {setting === "pickup" ? "Setting..." : "Set"}
+              </button>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-2 h-2 bg-red-500 rounded-full mt-2.5 flex-shrink-0" />
@@ -223,14 +223,23 @@ export default function RequestRidePage() {
                   type="text"
                   value={dropoffAddr}
                   onChange={(e) => setDropoffAddr(e.target.value)}
-                  placeholder="Click on the map to set dropoff"
+                  placeholder="Dropoff location"
                   className="w-full text-sm text-gray-700 bg-transparent border-b border-gray-200 py-1 focus:outline-none focus:border-emerald-500"
                 />
               </div>
+              <button
+                onClick={() => setSetting("dropoff")}
+                className={`text-xs font-medium px-3 py-1 rounded-full flex-shrink-0 ${
+                  setting === "dropoff"
+                    ? "bg-red-500 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                {setting === "dropoff" ? "Setting..." : "Set"}
+              </button>
             </div>
           </div>
 
-          {/* Map */}
           <Map
             pickup={pickup}
             dropoff={dropoff}
@@ -238,7 +247,6 @@ export default function RequestRidePage() {
             height="400px"
           />
 
-          {/* Fare estimate banner - shows as soon as both locations are set */}
           {pickup && dropoff && fare && (
             <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
               <div>
@@ -251,7 +259,6 @@ export default function RequestRidePage() {
             </div>
           )}
 
-          {/* Request ride button */}
           <button
             onClick={() => setStep("confirm")}
             disabled={!dropoff}
@@ -261,7 +268,7 @@ export default function RequestRidePage() {
                 : "bg-gray-300 cursor-not-allowed"
             }`}
           >
-            {dropoff ? "Confirm & Request Ride" : "Select a dropoff location on the map"}
+            {dropoff ? "Confirm & Request Ride" : "Set a dropoff location on the map"}
           </button>
         </>
       )}
@@ -272,7 +279,6 @@ export default function RequestRidePage() {
             Confirm Your Ride
           </h2>
 
-          {/* Route summary */}
           <div className="space-y-3 mb-6">
             <div className="flex items-start space-x-3">
               <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2 flex-shrink-0" />
@@ -294,7 +300,6 @@ export default function RequestRidePage() {
             </div>
           </div>
 
-          {/* Estimated fare */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Estimated Fare</span>
@@ -361,7 +366,6 @@ export default function RequestRidePage() {
                 </p>
               </div>
 
-              {/* Ride info */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Fare</span>
@@ -441,7 +445,6 @@ export default function RequestRidePage() {
         </div>
       )}
 
-      {/* Rating modal */}
       <RatingModal
         isOpen={showRating}
         onClose={() => setShowRating(false)}
