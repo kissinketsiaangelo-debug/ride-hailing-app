@@ -7,16 +7,16 @@ import type { Location } from "./types"
 // Configuration constants for fare calculation (in Ghana Cedis ₵)
 const CONFIG = {
   // Ride fares
-  rideBaseFare: 5, // Base fare in Ghana Cedis
-  ridePerKmRate: 3, // Cost per kilometer
-  ridePerMinuteRate: 0.5, // Cost per minute (simulated)
-  rideMinFare: 10, // Minimum fare for any ride
+  rideBaseFare: 500, // Base fare in Naira
+  ridePerKmRate: 150, // Cost per kilometer
+  ridePerMinuteRate: 20, // Cost per minute (simulated)
+  rideMinFare: 300, // Minimum fare for any ride
 
   // Delivery fees
-  deliveryBaseFee: 5,
-  deliveryPerKmRate: 2,
-  deliveryWeightSurcharge: 1, // Per kg surcharge
-  deliveryMinFee: 10,
+  deliveryBaseFee: 300,
+  deliveryPerKmRate: 100,
+  deliveryWeightSurcharge: 50, // Per kg surcharge
+  deliveryMinFee: 200,
 }
 
 // Calculate the estimated fare for a ride between pickup and dropoff
@@ -34,7 +34,7 @@ export function calculateRideFare(
     distanceKm * CONFIG.ridePerKmRate +
     estimatedMinutes * CONFIG.ridePerMinuteRate
 
-  return Math.round(Math.max(fare, CONFIG.rideMinFare) * 100) / 100
+  return Math.max(fare, CONFIG.rideMinFare)
 }
 
 // Calculate the estimated fee for a delivery
@@ -50,5 +50,5 @@ export function calculateDeliveryFee(
     distanceKm * CONFIG.deliveryPerKmRate +
     weightKg * CONFIG.deliveryWeightSurcharge
 
-  return Math.round(Math.max(fee, CONFIG.deliveryMinFee) * 100) / 100
+  return Math.max(fee, CONFIG.deliveryMinFee)
 }

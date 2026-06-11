@@ -1,3 +1,5 @@
+// Request Delivery page - send a package with pickup/dropoff and package info
+
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
@@ -14,7 +16,7 @@ const Map = dynamic(() => import("@/components/Map"), {
   ),
 })
 
-const DEFAULT_LOCATION = { lat: 5.6037, lng: -0.1870 }
+const DEFAULT_LOCATION = { lat: 5.6037, lng: -0.1870 } // Accra, Ghana
 
 export default function RequestDeliveryPage() {
   const router = useRouter()
@@ -23,7 +25,6 @@ export default function RequestDeliveryPage() {
   const [dropoff, setDropoff] = useState<{ lat: number; lng: number } | null>(null)
   const [pickupAddr, setPickupAddr] = useState("")
   const [dropoffAddr, setDropoffAddr] = useState("")
-  const [setting, setSetting] = useState<"pickup" | "dropoff">("pickup")
   const [packageDesc, setPackageDesc] = useState("")
   const [packageWeight, setPackageWeight] = useState("")
   const [step, setStep] = useState<"select" | "confirm" | "submitting" | "done">("select")
@@ -39,6 +40,7 @@ export default function RequestDeliveryPage() {
     }
     setToken(storedToken)
 
+    // Get current location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -46,7 +48,6 @@ export default function RequestDeliveryPage() {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           })
-          setPickupAddr(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`)
         },
         () => setPickup(DEFAULT_LOCATION)
       )
@@ -55,6 +56,7 @@ export default function RequestDeliveryPage() {
     }
   }, [router])
 
+  // Live fee calculation when pickup, dropoff, or package weight changes
   useEffect(() => {
     if (pickup && dropoff) {
       const w = parseFloat(packageWeight) || 0
@@ -66,33 +68,26 @@ export default function RequestDeliveryPage() {
   }, [pickup, dropoff, packageWeight])
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
-    if (step !== "select") return
-    if (setting === "pickup") {
-      setPickup({ lat, lng })
-      setPickupAddr(`${lat.toFixed(4)}, ${lng.toFixed(4)}`)
-    } else {
-      setDropoff({ lat, lng })
-      setDropoffAddr(`${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+    if (step === "select") {
+      if (!pickup) {
+        setPickup({ lat, lng })
+        setPickupAddr(`${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+      } else if (!dropoff) {
+        setDropoff({ lat, lng })
+        setDropoffAddr(`${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+      }
     }
-  }, [step, setting])
+  }, [step, pickup, dropoff])
 
+  // Reset pickup/dropoff selection
   const resetLocations = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setPickup({ lat: position.coords.latitude, lng: position.coords.longitude })
-          setPickupAddr(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`)
-        },
-        () => setPickup(DEFAULT_LOCATION)
-      )
-    } else {
-      setPickup(DEFAULT_LOCATION)
-    }
+    setPickup(null)
     setDropoff(null)
+    setPickupAddr("")
     setDropoffAddr("")
-    setSetting("pickup")
   }
 
+  // Submit the delivery request
   const handleSubmit = async () => {
     if (!pickup || !dropoff || !token) return
 
@@ -143,9 +138,11 @@ export default function RequestDeliveryPage() {
       {step === "select" && (
         <>
           <p className="text-sm text-gray-500 mb-4">
-            Click on the map to set locations. Toggle between pickup and dropoff.
+            Click on the map to set pickup, then click again to set dropoff
+            location.
           </p>
 
+          {/* Location inputs */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
             <div className="flex items-start space-x-3">
               <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2.5 flex-shrink-0" />
@@ -159,16 +156,6 @@ export default function RequestDeliveryPage() {
                   className="w-full text-sm text-gray-700 bg-transparent border-b border-gray-200 py-1 focus:outline-none focus:border-emerald-500"
                 />
               </div>
-              <button
-                onClick={() => setSetting("pickup")}
-                className={`text-xs font-medium px-3 py-1 rounded-full flex-shrink-0 ${
-                  setting === "pickup"
-                    ? "bg-emerald-500 text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                {setting === "pickup" ? "Setting..." : "Set"}
-              </button>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-2 h-2 bg-red-500 rounded-full mt-2.5 flex-shrink-0" />
@@ -182,19 +169,10 @@ export default function RequestDeliveryPage() {
                   className="w-full text-sm text-gray-700 bg-transparent border-b border-gray-200 py-1 focus:outline-none focus:border-emerald-500"
                 />
               </div>
-              <button
-                onClick={() => setSetting("dropoff")}
-                className={`text-xs font-medium px-3 py-1 rounded-full flex-shrink-0 ${
-                  setting === "dropoff"
-                    ? "bg-red-500 text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                {setting === "dropoff" ? "Setting..." : "Set"}
-              </button>
             </div>
           </div>
 
+          {/* Package info */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
             <h3 className="text-sm font-medium text-gray-700">Package Details</h3>
             <input
@@ -222,6 +200,7 @@ export default function RequestDeliveryPage() {
             height="350px"
           />
 
+          {/* Live fee estimate */}
           {pickup && dropoff && fee && (
             <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
               <div>
