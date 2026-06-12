@@ -32,8 +32,10 @@ model User {
   ridesAsDriver  Ride[]     @relation("DriverRides")
   deliveriesAsSender   Delivery[] @relation("SenderDeliveries")
   deliveriesAsDriver   Delivery[] @relation("DriverDeliveries")
-  ratingsGiven   Rating[]   @relation("RatingGiven")
-  ratingsReceived Rating[] @relation("RatingReceived")
+  ratingsGiven       Rating[]   @relation("RatingGiven")
+  ratingsReceived    Rating[]   @relation("RatingReceived")
+  vehicle            Vehicle?
+  sentMessages       Message[] @relation("SentMessages")
 }
 
 // Ride model - represents a passenger ride request
@@ -58,6 +60,7 @@ model Ride {
 
   payment  Payment?
   rating   Rating?
+  messages Message[]
 }
 
 // Delivery model - represents a package delivery request
@@ -97,6 +100,32 @@ model Payment {
 
   ride     Ride?     @relation(fields: [rideId], references: [id])
   delivery Delivery? @relation(fields: [deliveryId], references: [id])
+}
+
+// Vehicle model - driver's car information
+model Vehicle {
+  id     String @id @default(uuid())
+  make   String // e.g., Toyota, Honda
+  model  String // e.g., Camry, Civic
+  color  String
+  plate  String @unique // License plate number
+  type   String @default("CAR") // CAR, SUV, VAN, BIKE
+  year   Int?
+  driverId String @unique
+
+  driver User @relation(fields: [driverId], references: [id])
+}
+
+// Message model - chat messages during rides
+model Message {
+  id        String   @id @default(uuid())
+  rideId    String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  ride   Ride @relation(fields: [rideId], references: [id])
+  sender User @relation("SentMessages", fields: [senderId], references: [id])
 }
 
 // Rating model - bidirectional ratings between riders and drivers

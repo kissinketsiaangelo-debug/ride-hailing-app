@@ -1,9 +1,10 @@
 // API route: GET /api/drivers/nearby
-// Returns online drivers near a given location
+// Returns online drivers near a given location with vehicle info
 
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { getUserFromRequest } from "@/lib/auth"
+import { haversineDistance } from "@/lib/matching"
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get query parameters: lat, lng, radius
     const { searchParams } = new URL(request.url)
     const lat = parseFloat(searchParams.get("lat") || "0")
     const lng = parseFloat(searchParams.get("lng") || "0")
@@ -27,7 +27,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Find all online drivers with their locations
     const onlineDrivers = await prisma.user.findMany({
       where: {
         role: "DRIVER",
@@ -38,17 +37,38 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
+        phone: true,
         currentLat: true,
         currentLng: true,
+        vehicle: {
+          select: {
+            make: true,
+            model: true,
+            color: true,
+            plate: true,
+            type: true,
+          },
+        },
       },
     })
 
-    // Return the list of online drivers
+    const driversWithDistance = onlineDrivers
+      .map((d) => ({
+        id: d.id,
+        name: d.name,
+        phone: d.phone,
+        lat: d.currentLat!,
+        lng: d.currentLng!,
+        distance: haversineDistance({ lat, lng }, { lat: d.currentLat!, lng: d.currentLng! }),
+        vehicle: d.vehicle,
+      }))
+      .sort((a, b) => a.distance - b.distance)
+
     return NextResponse.json({
       success: true,
       data: {
-        count: onlineDrivers.length,
-        drivers: onlineDrivers,
+        count: driversWithDistance.length,
+        drivers: driversWithDistance,
       },
     })
   } catch (error) {

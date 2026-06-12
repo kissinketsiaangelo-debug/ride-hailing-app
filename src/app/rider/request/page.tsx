@@ -6,7 +6,12 @@ import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import RatingModal from "@/components/RatingModal"
+import LocationSearch from "@/components/LocationSearch"
+import ChatBox from "@/components/ChatBox"
 import { calculateRideFare } from "@/lib/fare"
+import { useSocket } from "@/lib/useSocket"
+import { haversineDistance } from "@/lib/matching"
+import type { Town } from "@/data/ghana-towns"
 
 // Dynamically import the map component to avoid SSR issues with Leaflet
 const Map = dynamic(() => import("@/components/Map"), {
@@ -24,6 +29,8 @@ const DEFAULT_LOCATION = { lat: 5.6037, lng: -0.1870 }
 export default function RequestRidePage() {
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userName, setUserName] = useState("")
   const [pickup, setPickup] = useState<{ lat: number; lng: number } | null>(null)
   const [dropoff, setDropoff] = useState<{ lat: number; lng: number } | null>(null)
   const [pickupAddr, setPickupAddr] = useState("")
@@ -31,11 +38,16 @@ export default function RequestRidePage() {
   const [step, setStep] = useState<"select" | "confirm" | "matching" | "active" | "complete">("select")
   const [fare, setFare] = useState<number | null>(null)
   const [rideId, setRideId] = useState<string | null>(null)
-  const [matchedDriver, setMatchedDriver] = useState<{ id: string; name: string; distance: number } | null>(null)
+  const [matchedDriver, setMatchedDriver] = useState<{ id: string; name: string; phone: string | null; distance: number; speed?: number } | null>(null)
   const [error, setError] = useState("")
   const [showRating, setShowRating] = useState(false)
   const [currentRideId, setCurrentRideId] = useState("")
   const [currentDriverId, setCurrentDriverId] = useState("")
+  const [nearbyDrivers, setNearbyDrivers] = useState<{ id: string; name: string; lat: number; lng: number; distance: number; vehicle?: { make: string; model: string; color: string; plate: string; type: string } }[]>([])
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number; speed?: number } | null>(null)
+  const [driverEta, setDriverEta] = useState<{ toPickup: string; toDropoff: string } | null>(null)
+  const [showChat, setShowChat] = useState(false)
+  const [chatMessages, setChatMessages] = useState<{ rideId: string; senderId: string; senderName: string; content: string; createdAt: string }[]>([])
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token")
@@ -50,6 +62,8 @@ export default function RequestRidePage() {
       return
     }
     setToken(storedToken)
+    setUserId(user.id)
+    setUserName(user.name)
 
     // Get current location from browser
     if (navigator.geolocation) {
@@ -79,6 +93,71 @@ export default function RequestRidePage() {
       setFare(null)
     }
   }, [pickup, dropoff])
+
+  // Socket connection
+  const { emit, on } = useSocket(userId, "RIDER")
+
+  // Fetch nearby drivers when pickup changes
+  useEffect(() => {
+    if (!pickup || !token || step !== "select") return
+
+    fetch(`/api/drivers/nearby?lat=${pickup.lat}&lng=${pickup.lng}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setNearbyDrivers(data.data.drivers)
+      })
+      .catch(() => {})
+  }, [pickup, token, step])
+
+  // Listen for real-time driver location updates
+  useEffect(() => {
+    if (step !== "active" || !rideId) return
+
+    const unsub = on("rideTracking", (data: unknown) => {
+      const d = data as { rideId: string; lat: number; lng: number; speed?: number }
+      if (d.rideId === rideId) {
+        setDriverLocation({ lat: d.lat, lng: d.lng, speed: d.speed })
+      }
+    })
+
+    const unsubMsg = on("newMessage", (data: unknown) => {
+      const m = data as { rideId: string; senderId: string; senderName: string; content: string; createdAt: string }
+      if (m.rideId === rideId) {
+        setChatMessages((prev) => [...prev, m])
+      }
+    })
+
+    return () => {
+      unsub?.()
+      unsubMsg?.()
+    }
+  }, [step, rideId, on])
+
+  // Calculate ETA based on driver speed
+  useEffect(() => {
+    if (!driverLocation || !pickup || !dropoff) {
+      setDriverEta(null)
+      return
+    }
+
+    const distToPickup = haversineDistance(
+      { lat: driverLocation.lat, lng: driverLocation.lng },
+      { lat: pickup.lat, lng: pickup.lng }
+    )
+    const distToDropoff = haversineDistance(
+      { lat: pickup.lat, lng: pickup.lng },
+      { lat: dropoff.lat, lng: dropoff.lng }
+    )
+
+    const speed = driverLocation.speed || 30
+    const minsToPickup = speed > 0 ? (distToPickup / speed) * 60 : 0
+    const minsToDropoff = speed > 0 ? ((distToPickup + distToDropoff) / speed) * 60 : 0
+
+    setDriverEta({
+      toPickup: minsToPickup < 1 ? "Arriving" : `${Math.round(minsToPickup)} min`,
+      toDropoff: `${Math.round(minsToDropoff)} min`,
+    })
+  }, [driverLocation, pickup, dropoff])
 
   // Handle map click to set dropoff location
   const handleMapClick = useCallback((lat: number, lng: number) => {
@@ -125,6 +204,11 @@ export default function RequestRidePage() {
 
       if (data.data.matchedDriver) {
         setMatchedDriver(data.data.matchedDriver)
+        emit("requestMatch", {
+          rideId: data.data.ride.id,
+          pickupLat: pickup.lat,
+          pickupLng: pickup.lng,
+        })
         setStep("active")
       } else {
         // No driver found - still create the ride but let the user know
@@ -202,38 +286,36 @@ export default function RequestRidePage() {
 
           {/* Location inputs */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2.5 flex-shrink-0" />
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">PICKUP</label>
-                <input
-                  type="text"
-                  value={pickupAddr}
-                  onChange={(e) => setPickupAddr(e.target.value)}
-                  placeholder="Your current location"
-                  className="w-full text-sm text-gray-700 bg-transparent border-b border-gray-200 py-1 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-red-500 rounded-full mt-2.5 flex-shrink-0" />
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">DROPOFF</label>
-                <input
-                  type="text"
-                  value={dropoffAddr}
-                  onChange={(e) => setDropoffAddr(e.target.value)}
-                  placeholder="Click on the map to set dropoff"
-                  className="w-full text-sm text-gray-700 bg-transparent border-b border-gray-200 py-1 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
+            <LocationSearch
+              value={pickupAddr}
+              onChange={(val) => { setPickupAddr(val); if (!val.trim()) setPickup(null) }}
+              onSelect={(town: Town) => {
+                setPickup({ lat: town.lat, lng: town.lng })
+                setPickupAddr(town.name)
+              }}
+              placeholder="Search pickup town or city"
+              label="PICKUP"
+              color="emerald"
+            />
+            <LocationSearch
+              value={dropoffAddr}
+              onChange={(val) => { setDropoffAddr(val); if (!val.trim()) setDropoff(null) }}
+              onSelect={(town: Town) => {
+                setDropoff({ lat: town.lat, lng: town.lng })
+                setDropoffAddr(town.name)
+              }}
+              placeholder="Search dropoff town or city"
+              label="DROPOFF"
+              color="red"
+            />
           </div>
 
           {/* Map */}
           <Map
             pickup={pickup}
             dropoff={dropoff}
+            nearbyDrivers={nearbyDrivers}
+            driverLocation={driverLocation}
             onClick={handleMapClick}
             height="400px"
           />
@@ -361,6 +443,26 @@ export default function RequestRidePage() {
                 </p>
               </div>
 
+              {/* Driver speed & ETA */}
+              {driverLocation && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-[10px] text-blue-500 font-medium uppercase">Speed</p>
+                      <p className="text-lg font-bold text-blue-700">{driverLocation.speed || 0} <span className="text-xs font-normal">km/h</span></p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-blue-500 font-medium uppercase">ETA to You</p>
+                      <p className="text-lg font-bold text-blue-700">{driverEta?.toPickup || "---"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-blue-500 font-medium uppercase">ETA to Dropoff</p>
+                      <p className="text-lg font-bold text-blue-700">{driverEta?.toDropoff || "---"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Ride info */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="flex justify-between items-center">
@@ -377,9 +479,26 @@ export default function RequestRidePage() {
                 </div>
               </div>
 
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowChat(true)}
+                  className="flex-1 py-3 text-sm font-semibold text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100"
+                >
+                  💬 Chat
+                </button>
+                {matchedDriver.phone && (
+                  <a
+                    href={`tel:${matchedDriver.phone}`}
+                    className="flex-1 py-3 text-sm font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600 text-center block"
+                  >
+                    📞 Call
+                  </a>
+                )}
+              </div>
               <button
                 onClick={handleCompleteRide}
-                className="w-full py-3 text-sm font-semibold text-white bg-emerald-500 rounded-lg hover:bg-emerald-600"
+                className="w-full mt-3 py-3 text-sm font-semibold text-white bg-emerald-500 rounded-lg hover:bg-emerald-600"
               >
                 Complete Ride
               </button>
@@ -402,6 +521,26 @@ export default function RequestRidePage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Chat box */}
+      {showChat && rideId && userId && (
+        <ChatBox
+          rideId={rideId}
+          userId={userId}
+          userName={userName}
+          otherName={matchedDriver?.name || "Driver"}
+          onSendMessage={(content) => {
+            emit("sendMessage", {
+              rideId,
+              senderId: userId,
+              senderName: userName,
+              content,
+            })
+          }}
+          onClose={() => setShowChat(false)}
+          initialMessages={chatMessages}
+        />
       )}
 
       {step === "complete" && (

@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:all": "node socket-server.js & next dev",
     "build": "next build",
     "start": "next start",
+    "socket": "node socket-server.js",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

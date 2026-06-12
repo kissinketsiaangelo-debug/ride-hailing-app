@@ -5,7 +5,9 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
+import LocationSearch from "@/components/LocationSearch"
 import { calculateDeliveryFee } from "@/lib/fare"
+import type { Town } from "@/data/ghana-towns"
 
 const Map = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -144,32 +146,28 @@ export default function RequestDeliveryPage() {
 
           {/* Location inputs */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2.5 flex-shrink-0" />
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">PICKUP</label>
-                <input
-                  type="text"
-                  value={pickupAddr}
-                  onChange={(e) => setPickupAddr(e.target.value)}
-                  placeholder={pickup ? "Pickup address" : "Click map to set pickup"}
-                  className="w-full text-sm text-gray-700 bg-transparent border-b border-gray-200 py-1 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-red-500 rounded-full mt-2.5 flex-shrink-0" />
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">DROPOFF</label>
-                <input
-                  type="text"
-                  value={dropoffAddr}
-                  onChange={(e) => setDropoffAddr(e.target.value)}
-                  placeholder={dropoff ? "Dropoff address" : "Click map to set dropoff"}
-                  className="w-full text-sm text-gray-700 bg-transparent border-b border-gray-200 py-1 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
+            <LocationSearch
+              value={pickupAddr}
+              onChange={(val) => { setPickupAddr(val); if (!val.trim()) setPickup(null) }}
+              onSelect={(town: Town) => {
+                setPickup({ lat: town.lat, lng: town.lng })
+                setPickupAddr(town.name)
+              }}
+              placeholder="Search pickup town or city"
+              label="PICKUP"
+              color="emerald"
+            />
+            <LocationSearch
+              value={dropoffAddr}
+              onChange={(val) => { setDropoffAddr(val); if (!val.trim()) setDropoff(null) }}
+              onSelect={(town: Town) => {
+                setDropoff({ lat: town.lat, lng: town.lng })
+                setDropoffAddr(town.name)
+              }}
+              placeholder="Search dropoff town or city"
+              label="DROPOFF"
+              color="red"
+            />
           </div>
 
           {/* Package info */}

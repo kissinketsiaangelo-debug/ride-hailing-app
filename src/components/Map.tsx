@@ -1,13 +1,11 @@
 // Map component using Leaflet for displaying locations and tracking
-// Supports: pickup/dropoff markers, driver location, real-time tracking
+// Supports: pickup/dropoff markers, nearby drivers, real-time tracking
 
 "use client"
 
 import { useEffect, useRef } from "react"
 import L from "leaflet"
 
-// Fix Leaflet's default marker icon issue with webpack/Next.js
-// Without this, marker icons show as broken images
 const defaultIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -20,7 +18,6 @@ const defaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = defaultIcon
 
-// Custom icon colors for different marker types
 const pickupIcon = L.divIcon({
   className: "custom-marker",
   html: `<div style="background:#10b981;color:white;padding:4px 8px;border-radius:8px;font-size:12px;font-weight:bold;white-space:nowrap;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">PICKUP</div>`,
@@ -42,24 +39,44 @@ const driverIcon = L.divIcon({
   iconAnchor: [35, 15],
 })
 
+function nearbyDriverIcon(name: string, speed: number) {
+  return L.divIcon({
+    className: "nearby-driver",
+    html: `<div style="background:#3b82f6;color:white;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:bold;white-space:nowrap;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">🚗 ${name.split(" ")[0]}${speed > 0 ? ` ${speed}km/h` : ""}</div>`,
+    iconSize: [0, 0],
+    iconAnchor: [40, 15],
+  })
+}
+
+type NearbyDriver = {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  speed?: number
+  vehicle?: { make: string; model: string; color: string; plate: string; type: string }
+}
+
 type MapProps = {
   center?: [number, number]
   zoom?: number
   height?: string
   pickup?: { lat: number; lng: number } | null
   dropoff?: { lat: number; lng: number } | null
-  driverLocation?: { lat: number; lng: number } | null
+  driverLocation?: { lat: number; lng: number; speed?: number } | null
+  nearbyDrivers?: NearbyDriver[]
   onClick?: (lat: number, lng: number) => void
   className?: string
 }
 
 export default function Map({
-  center = [6.5244, 3.3792], // Default center: Lagos, Nigeria
-  zoom = 13,
+  center = [5.6037, -0.1870],
+  zoom = 12,
   height = "400px",
   pickup,
   dropoff,
   driverLocation,
+  nearbyDrivers = [],
   onClick,
   className = "",
 }: MapProps) {
@@ -106,11 +123,9 @@ export default function Map({
     const map = mapRef.current
     if (!map) return
 
-    // Clear existing markers
     markersRef.current.forEach((marker) => marker.remove())
     markersRef.current = []
 
-    // Add pickup marker
     if (pickup) {
       const marker = L.marker([pickup.lat, pickup.lng], { icon: pickupIcon })
         .addTo(map)
@@ -118,7 +133,6 @@ export default function Map({
       markersRef.current.push(marker)
     }
 
-    // Add dropoff marker
     if (dropoff) {
       const marker = L.marker([dropoff.lat, dropoff.lng], { icon: dropoffIcon })
         .addTo(map)
@@ -126,34 +140,52 @@ export default function Map({
       markersRef.current.push(marker)
     }
 
-    // Add driver location marker
+    // Nearby available drivers
+    nearbyDrivers.forEach((driver) => {
+      const marker = L.marker([driver.lat, driver.lng], {
+        icon: nearbyDriverIcon(driver.name, driver.speed || 0),
+      })
+        .addTo(map)
+        .bindPopup(
+          `<div><b>${driver.name}</b><br/>${
+            driver.vehicle
+              ? `${driver.vehicle.color} ${driver.vehicle.make} ${driver.vehicle.model}<br/>${driver.vehicle.plate}`
+              : "Driver"
+          }</div>`
+        )
+      markersRef.current.push(marker)
+    })
+
     if (driverLocation) {
       const marker = L.marker([driverLocation.lat, driverLocation.lng], {
         icon: driverIcon,
       })
         .addTo(map)
-        .bindPopup("Driver Location")
+        .bindPopup(
+          `Driver${driverLocation.speed ? `<br/>⚡ ${driverLocation.speed} km/h` : ""}`
+        )
       markersRef.current.push(marker)
     }
 
-    // If we have both pickup and dropoff, fit the map to show both
     if (pickup && dropoff) {
       const bounds = L.latLngBounds(
         [pickup.lat, pickup.lng],
         [dropoff.lat, dropoff.lng]
       )
       map.fitBounds(bounds, { padding: [50, 50] })
-    }
-
-    // If we have a driver and a pickup, show both
-    if (pickup && driverLocation) {
+    } else if (pickup && driverLocation) {
       const bounds = L.latLngBounds(
         [pickup.lat, pickup.lng],
         [driverLocation.lat, driverLocation.lng]
       )
       map.fitBounds(bounds, { padding: [50, 50] })
+    } else if (nearbyDrivers.length > 0 && pickup) {
+      const allPoints = nearbyDrivers.map((d) => [d.lat, d.lng] as [number, number])
+      allPoints.push([pickup.lat, pickup.lng])
+      const bounds = L.latLngBounds(allPoints)
+      map.fitBounds(bounds, { padding: [50, 50] })
     }
-  }, [pickup, dropoff, driverLocation])
+  }, [pickup, dropoff, driverLocation, nearbyDrivers])
 
   return (
     <div
