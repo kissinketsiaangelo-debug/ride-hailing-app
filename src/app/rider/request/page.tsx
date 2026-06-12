@@ -8,6 +8,7 @@ import dynamic from "next/dynamic"
 import RatingModal from "@/components/RatingModal"
 import LocationSearch from "@/components/LocationSearch"
 import ChatBox from "@/components/ChatBox"
+import Toast from "@/components/Toast"
 import { calculateRideFare } from "@/lib/fare"
 import { useSocket } from "@/lib/useSocket"
 import { haversineDistance } from "@/lib/matching"
@@ -48,6 +49,7 @@ export default function RequestRidePage() {
   const [driverEta, setDriverEta] = useState<{ toPickup: string; toDropoff: string } | null>(null)
   const [showChat, setShowChat] = useState(false)
   const [chatMessages, setChatMessages] = useState<{ rideId: string; senderId: string; senderName: string; content: string; createdAt: string }[]>([])
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null)
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token")
@@ -120,6 +122,13 @@ export default function RequestRidePage() {
       }
     })
 
+    const unsubAccepted = on("rideAccepted", (data: unknown) => {
+      const d = data as { rideId: string; driverId: string }
+      if (d.rideId === rideId) {
+        setNotification({ message: "🎉 Driver has accepted your ride!", type: "success" })
+      }
+    })
+
     const unsubMsg = on("newMessage", (data: unknown) => {
       const m = data as { rideId: string; senderId: string; senderName: string; content: string; createdAt: string }
       if (m.rideId === rideId) {
@@ -129,6 +138,7 @@ export default function RequestRidePage() {
 
     return () => {
       unsub?.()
+      unsubAccepted?.()
       unsubMsg?.()
     }
   }, [step, rideId, on])
@@ -209,6 +219,7 @@ export default function RequestRidePage() {
           pickupLat: pickup.lat,
           pickupLng: pickup.lng,
         })
+        setNotification({ message: `🚗 ${data.data.matchedDriver.name} is heading to you!`, type: "success" })
         setStep("active")
       } else {
         // No driver found - still create the ride but let the user know
@@ -536,6 +547,7 @@ export default function RequestRidePage() {
               senderId: userId,
               senderName: userName,
               content,
+              receiverId: matchedDriver?.id,
             })
           }}
           onClose={() => setShowChat(false)}
@@ -587,6 +599,15 @@ export default function RequestRidePage() {
         onSubmit={handleSubmitRating}
         driverName={matchedDriver?.name}
       />
+
+      {/* Notifications */}
+      {notification && (
+        <Toast
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
     </div>
   )
 }

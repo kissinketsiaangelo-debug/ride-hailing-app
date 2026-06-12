@@ -79,23 +79,20 @@ io.on("connection", (socket) => {
     }
   })
 
-  socket.on("sendMessage", ({ rideId, senderId, senderName, content }) => {
-    const receiverRole = socket.data.role === "DRIVER" ? "RIDER" : "DRIVER"
-    const sender = connectedUsers.get(senderId)
-    connectedUsers.forEach((user, userId) => {
-      if (userId !== senderId && user.role === receiverRole) {
-        const rideUser = connectedUsers.get(senderId)
-        if (rideUser) {
-          io.to(user.socketId).emit("newMessage", {
-            rideId,
-            senderId,
-            senderName,
-            content,
-            createdAt: new Date().toISOString(),
-          })
+  socket.on("sendMessage", ({ rideId, senderId, senderName, content, receiverId }) => {
+    const msg = { rideId, senderId, senderName, content, createdAt: new Date().toISOString() }
+
+    if (receiverId) {
+      const receiver = connectedUsers.get(receiverId)
+      if (receiver) io.to(receiver.socketId).emit("newMessage", msg)
+    } else {
+      const receiverRole = socket.data.role === "DRIVER" ? "RIDER" : "DRIVER"
+      connectedUsers.forEach((user, uid) => {
+        if (uid !== senderId && user.role === receiverRole) {
+          io.to(user.socketId).emit("newMessage", msg)
         }
-      }
-    })
+      })
+    }
   })
 
   socket.on("disconnect", () => {

@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import ChatBox from "@/components/ChatBox"
+import Toast from "@/components/Toast"
 import { useSocket } from "@/lib/useSocket"
 
 type RideRequest = {
@@ -36,8 +37,11 @@ export default function DriverDashboard() {
   const [showChat, setShowChat] = useState(false)
   const [chatMessages, setChatMessages] = useState<{ rideId: string; senderId: string; senderName: string; content: string; createdAt: string }[]>([])
   const [activeRideId, setActiveRideId] = useState<string | null>(null)
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null)
   const prevPosRef = useRef<{ lat: number; lng: number; time: number } | null>(null)
   const watchIdRef = useRef<number | null>(null)
+  const onlineLatRef = useRef(currentLat)
+  const onlineLngRef = useRef(currentLng)
 
   const { emit, on } = useSocket(userId, "DRIVER")
 
@@ -119,6 +123,41 @@ export default function DriverDashboard() {
     }
   }, [isOnline, userId, activeRide, activeRideId, emit])
 
+  // Poll for pending rides as fallback
+  useEffect(() => {
+    if (!isOnline || !token || activeRide) return
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/rides/pending", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
+        if (data.success && data.data) {
+          data.data.forEach((ride: { id: string; pickupLat: number; pickupLng: number; pickupAddr?: string; dropoffLat: number; dropoffLng: number; dropoffAddr?: string; fare: number; rider?: { id: string; name: string } }) => {
+            if (!rideRequests.find((r) => r.id === ride.id) && !activeRide) {
+              setRideRequests((prev) => [...prev, {
+                id: ride.id,
+                pickupLat: ride.pickupLat,
+                pickupLng: ride.pickupLng,
+                pickupAddr: ride.pickupAddr,
+                dropoffLat: ride.dropoffLat,
+                dropoffLng: ride.dropoffLng,
+                dropoffAddr: ride.dropoffAddr,
+                fare: ride.fare,
+                riderName: ride.rider?.name,
+                riderId: ride.rider?.id,
+              }])
+              setNotification({ message: "New ride request available!", type: "info" })
+            }
+          })
+        }
+      } catch {}
+    }, 8000)
+
+    return () => clearInterval(interval)
+  }, [isOnline, token, activeRide, rideRequests])
+
   // Listen for socket events
   useEffect(() => {
     if (!userId) return
@@ -155,6 +194,13 @@ export default function DriverDashboard() {
       }
     })
 
+    const unsubAccepted = on("rideAccepted", (data: unknown) => {
+      const d = data as { rideId: string; driverId: string }
+      if (d.driverId === userId) {
+        setNotification({ message: "🎉 Ride accepted! Head to pickup.", type: "success" })
+      }
+    })
+
     const unsubMsg = on("newMessage", (data: unknown) => {
       const m = data as { rideId: string; senderId: string; senderName: string; content: string; createdAt: string }
       setChatMessages((prev) => [...prev, m])
@@ -162,6 +208,7 @@ export default function DriverDashboard() {
 
     return () => {
       unsubRequest?.()
+      unsubAccepted?.()
       unsubMsg?.()
     }
   }, [userId, token, on])
@@ -176,7 +223,15 @@ export default function DriverDashboard() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ isOnline: newStatus, lat: currentLat, lng: currentLng }),
       })
-      if (res.ok) setIsOnline(newStatus)
+      if (res.ok) {
+        setIsOnline(newStatus)
+        if (newStatus) {
+          emit("updateLocation", { userId, lat: currentLat, lng: currentLng, speed: 0 })
+          setNotification({ message: "You are now online and receiving ride requests", type: "success" })
+        } else {
+          setNotification({ message: "You are now offline", type: "info" })
+        }
+      }
     } catch {}
   }
 
@@ -326,10 +381,19 @@ export default function DriverDashboard() {
               senderId: userId,
               senderName: userName,
               content,
+              receiverId: activeRide.riderId,
             })
           }}
           onClose={() => setShowChat(false)}
           initialMessages={chatMessages}
+        />
+      )}
+
+      {notification && (
+        <Toast
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
         />
       )}
     </div>
